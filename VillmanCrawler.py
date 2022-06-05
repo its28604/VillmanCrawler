@@ -6,101 +6,81 @@ from openpyxl.utils import get_column_letter
 from openpyxl import load_workbook
 from lxml import etree
 
-def getHtmlFrom(url):
+def get_html_from(url):
 	r = requests.get(url, verify=False)
 	r.encoding = 'cp950'
 	return etree.HTML(r.text)
 
-WORK_BOOK_NAME = "test.xlsx"
+def fill_color(row, column, color):
+	my_color = openpyxl.styles.colors.Color(rgb=color)
+	my_fill = openpyxl.styles.fills.PatternFill(patternType='solid', fgColor=my_color)
+	ws.cell(row=row, column=column).fill = my_fill	
+
+def fill_none(row, column):
+	my_fill = openpyxl.styles.fills.PatternFill(fill_type=None)
+	ws.cell(row=row, column=column).fill = my_fill	
+
+WORK_BOOK_NAME = "Villman.xlsx"
 
 wb = load_workbook(WORK_BOOK_NAME)
 
 url = "https://villman.com"
 url_page = url + "/Category/Notebook-PCs/%s"
 ws = wb.worksheets[0]
+dws = wb.worksheets[1]
 
-row = 0
-exist_datas = []
+bottom_row = 1
+discard_bottom_row = 1
+exist_data = {}
+active_data = {}
+
 while (True):
-	row += 1
-	name = ws.cell(row=row, column=1).value
+	bottom_row += 1
+	fill_none(row=bottom_row, column=1)
+	name = ws.cell(row=bottom_row, column=1).value
 	if name == None:
 		break;
 	else:
-		exist_datas.append(name)
+		exist_data[name] = bottom_row
 
-for data in exist_datas:
-	print(data)
+while (True):
+	discard_bottom_row += 1
+	name = dws.cell(row=discard_bottom_row, column=1).value
+	if name == None:
+		break;
 
 page = 0
-row = 0
 
-# while page < 500:
+while page < 500:
 
-# 	r = requests.get(url_page % page, verify=False)
-# 	html = etree.HTML(r.text)
+	r = requests.get(url_page % page, verify=False)
+	html = etree.HTML(r.text)
 
-# 	prod_link_list = html.xpath("*//a[@class='prod_link']")
+	prod_link_list = html.xpath("*//a[@class='prod_link']")
 
+	for a in prod_link_list:
+		name = a.text
+		if name in exist_data:
+			row = exist_data[name]
+			active_data[name] = row
+			del exist_data[name]
+		else: 
+			row = bottom_row
+			bottom_row += 1
+			ws.cell(row=row, column=1).value = name
+			fill_color(row=row, column=1, color='00FFFF00')
+		prod_link = a.get("href")
+		ws.cell(row=row, column=2).value = '=HYPERLINK("{}", "{}")'.format(url + prod_link, "Link")
 
-# 	i = get_column_letter(1)
-# 	ws.column_dimensions[i].width = 140
+	page += 50
 
-# 	for a in prod_link_list:
-# 		row += 1
+for key in exist_data.keys():
+	row = exist_data[key]
+	dws.cell(row=discard_bottom_row, column=1).value = ws.cell(row=row, column=1).value
+	for col in range(3, 10):
+		dws.cell(row=discard_bottom_row, column=col - 1).value = ws.cell(row=row, column=col).value
+	ws.delete_rows(row)
+	bottom_row -= 1
+	discard_bottom_row += 1
 
-# 		name = a.text
-# 		ws.cell(row=row, column=1).value = name
-# 		prod_link = a.get("href")
-# 		ws.cell(row=row, column=2).value = '=HYPERLINK("{}", "{}")'.format(url + prod_link, "Link")
-
-# 	page += 50
-
-# wb.save(WORK_BOOK_NAME)
-
-
-# # page amount catch
-# # page_amount = int(html.xpath("*//div[@class='insider_right_t']/h2/em")[0].text.replace("\xa0", ""))
-
-# # result_list = []
-
-# # 	# html = "https://case.104.com.tw/postcase_list.cfm?cat=0&area=0&role=0&iType=2&caseno=%E5%AE%A4%E5%85%A7%E8%A8%AD%E8%A8%88&cat_s=0&money=&enddays=&orderby=0&page=2&other=&otherVal=&casetype=0&begin=0&cfrom=clist&IDNO=0"
-# # for i in range(1, page_amount+1):
-
-# # 	dl_list = html.xpath("*//div[@class='caselist']//dl")
-# # 	for dl in dl_list:
-# # 		result = {}
-# # 		# print(dl[0][0].attrib["href"])
-# # 		result["title"] = dl[0][0].text
-# # 		result["href"] = "https://case.104.com.tw/%s" % dl[0][0].attrib["href"]
-# # 		result["budget"] = dl[1].text
-# # 		result["last_online"] = dl[2][0].attrib['src']
-# # 		result["deadline"] = dl[3][0].attrib['src']
-# # 		result["views"] = "".join(dl[4].text.split())
-# # 		result["proposal"] = (dl[5][0].text + dl[5].text).replace("\r", "").replace("\n", "").replace(" ", "")
-# # 		result["context"] = dl[6].text
-# # 		requirement = dl[7][0].text
-# # 		for element in dl[7]:
-# # 			if element.text == requirement:
-# # 				requirement += ": " + element.text
-# # 			else:
-# # 				requirement += ", " + element.text
-# # 		result["requirement"] = requirement
-# # 		result_list.append(result);
-# # 		# print("title, %s" % result["title"])
-# # 		# print("href, %s" % result["href"])
-# # 		# print("budget, %s" % result["budget"])
-# # 		# print("last_online, %s" % result["last_online"])
-# # 		# print("deadline, %s" % result["deadline"])
-# # 		# print("views, %s" % result["views"])
-# # 		# print("proposal, %s" % result["proposal"])
-# # 		# print("context, %s" % result["context"])
-# # 		# print("requirement, %s" % result["requirement"])
-# # 		# print()
-# # 		# print()
-# # 		# print()
-# # 	# print("page %d" % i)
-# # 	url = url + "&page=%d" % i;
-
-# # return result_list
-
+wb.save(WORK_BOOK_NAME)
